@@ -288,7 +288,9 @@ return function(Vargs)
 				local commands = Admin.SearchCommands(p,args[1] or "all")
 				local tab = {}
 				for i,v in pairs(commands) do
-					table.insert(tab,Admin.FormatCommand(v))
+					if not v.Hidden and not v.Disabled then
+						table.insert(tab,Admin.FormatCommand(v))
+					end
 				end
 				return tab
 			end;
@@ -601,7 +603,7 @@ return function(Vargs)
 			end;
 
 			PlayerEvent = function(p,args)
-				service.Events[tostring(args[1])..p.userId]:fire(unpack(args,2))
+				service.Events[tostring(args[1])..p.userId]:Fire(unpack(args,2))
 			end;
 
 			SaveTableAdd = function(p,args) 
@@ -931,7 +933,7 @@ return function(Vargs)
 		end;
 
 		NewPlayerEvent = function(p,type,func)
-			return service.Events[type..p.userId]:connect(func)
+			return service.Events[type..p.userId]:Connect(func)
 		end;
 
 		StartLoop = function(p,name,delay,funcCode)
