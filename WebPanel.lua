@@ -1,10 +1,10 @@
---[[ 
+--[[
 
 	Currently in beta.
-	
+
 	Author: Cald_fan
 	Contributors: joritochip (Requests, handling custom commands, command overrides)
-	
+
 ]]
 
 return function(Vargs)
@@ -53,7 +53,7 @@ return function(Vargs)
 	local CachedDefaultLevels = {}
 
 	local OverrideQueue = {}
-	
+
 	local function CopyCommand(tbl)
 		local ret = {}
 		for i,v in pairs(tbl) do
@@ -66,7 +66,7 @@ return function(Vargs)
 		return ret
 	end
 
-	local function GetCustomCommands() 
+	local function GetCustomCommands()
 		local ret = FoundCustomCommands
 		FoundCustomCommands = {} -- Clear queue for next request
 		return ret
@@ -139,7 +139,7 @@ return function(Vargs)
 			ResetCommandAliases(index, command)
 		end
 	end
-	
+
 	local function UpdateCommand(index, command, v)
 		command.Disabled = v.disabled and "WebPanel" or nil
 
@@ -212,11 +212,31 @@ return function(Vargs)
 		WebPanel.Creators = data.Levels.Creators or {};
 		WebPanel.Admins = data.Levels.Admins or {};
 		WebPanel.Moderators = data.Levels.Moderators or {};
-		WebPanel.Owners = data.Levels.Owners or {};
+		WebPanel.HeadAdmins = data.Levels.Owners or {};
 		WebPanel.Mutes = data.Levels.Mutelist or {};
 		WebPanel.Blacklist = data.Levels.Blacklist or {};
 		WebPanel.Whitelist = data.Levels.Whitelist or {};
 		WebPanel.CustomRanks = data.Levels.CustomRanks or {};
+
+		Settings.Ranks["[WebPanel] Creators"] = {
+			Level = 900;
+			Users = WebPanel.Creators;
+		}
+
+		Settings.Ranks["[WebPanel] HeadAdmins"] = {
+			Level = 300;
+			Users = WebPanel.HeadAdmins;
+		}
+
+		Settings.Ranks["[WebPanel] Admins"] = {
+			Level = 200;
+			Users = WebPanel.Admins;
+		}
+
+		Settings.Ranks["[WebPanel] Moderators"] = {
+			Level = 100;
+			Users = WebPanel.Moderators;
+		}
 
 		if Variables.MusicList then
 			for i = #Variables.MusicList, 1, -1 do -- Iterating backwards to prevent wonky behavior with table.remove
@@ -225,7 +245,7 @@ return function(Vargs)
 					table.remove(Variables.MusicList, i)
 				end
 			end
-			for ind, music in next,data.Levels.Musiclist or {} do 
+			for ind, music in next,data.Levels.Musiclist or {} do
 				if music:match('^(.*):(.*)') then
 					local a,b = music:match('^(.*):(.*)')
 					if server.Variables.MusicList then
@@ -235,7 +255,7 @@ return function(Vargs)
 			end
 		end
 	end
-	
+
 	do -- Create a cache of the default admin levels for all commands
 		for name, command in pairs(Commands) do
 			CachedDefaultLevels[name] = rawget(command, "AdminLevel")
@@ -321,7 +341,7 @@ return function(Vargs)
 			--[[if init then
 				for i,v in next,data.Plugins do
 					local func,err = server.Core.Loadstring(Decode(v), getfenv())
-					if func then 
+					if func then
 						func()
 					else
 						warn("Error Loading Plugin from WebPanel.")
@@ -357,8 +377,8 @@ return function(Vargs)
 					UpdateSettings(data)
 
 					for _, p in pairs(service.GetPlayers()) do
-						if server.Admin.CheckBan(p) then 
-							server.Admin.AddBan(p, false) 
+						if server.Admin.CheckBan(p) then
+							server.Admin.AddBan(p, false)
 						else
 							Admin.UpdateCachedLevel(p)
 						end

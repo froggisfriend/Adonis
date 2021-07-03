@@ -3,12 +3,105 @@ return function(Vargs, env)
 	local service = Vargs.Service;
 
 	local Settings = server.Settings
-	local Functions, Commands, Admin, Anti, Core, HTTP, Logs, Remote, Process, Variables, Deps = 
+	local Functions, Commands, Admin, Anti, Core, HTTP, Logs, Remote, Process, Variables, Deps =
 		server.Functions, server.Commands, server.Admin, server.Anti, server.Core, server.HTTP, server.Logs, server.Remote, server.Process, server.Variables, server.Deps
 
 	if env then setfenv(1, env) end
 
 	return {
+		--[[
+		--// Unfortunately not viable
+		Reboot = {
+			Prefix = ":";
+			Commands = {"rebootadonis", "reloadadonis"};
+			Args = {};
+			Description = "Attempts to force Adonis to reload";
+			AdminLevel = "Admins";
+			Function = function(plr, args, data)
+				local rebootHandler = server.Deps.RebootHandler:Clone();
+
+				if server.Runner then
+					rebootHandler.mParent.Value = service.UnWrap(server.ModelParent);
+					rebootHandler.Dropper.Value = service.UnWrap(server.Dropper);
+					rebootHandler.Runner.Value = service.UnWrap(server.Runner);
+					rebootHandler.Model.Value = service.UnWrap(server.Model);
+					rebootHandler.Mode.Value = "REBOOT";
+					wait()
+					rebootHandler.Parent = service.ServerScriptService;
+					rebootHandler.Disabled = false;
+					wait()
+					server.CleanUp();
+				else
+					error("Unable to reload: Runner missing");
+				end
+			end;
+		};--]]
+
+		SetRank = {
+			Prefix = Settings.Prefix;
+			Commands = {"setrank", "setadminrank"};
+			Args = {"player", "level"};
+			Description = "Sets the target player(s) permission level";
+			AdminLevel = "Admins";
+			Function = function(plr, args, data)
+				local senderLevel = data.PlayerData.Level;
+				local newRank = assert(Settings.Ranks[args[2]], "Rank not found");
+				local newLevel = newRank.Level;
+
+				assert(newLevel < senderLevel, "Rank level cannot be equal to or greater than your own permission level (".. senderLevel ..")");
+
+				for i,p in next,service.GetPlayers(plr, args[1]) do
+					local targetLevel = Admin.GetLevel(p);
+
+					assert(targetLevel < senderLevel, "Target player's permission level is greater than or equal to your permission level");
+
+					if targetLevel < senderLevel then
+						Admin.AddAdmin(p, newLevel, true)
+						Remote.MakeGui(p,"Notification",{
+							Title = "Notification";
+							Message = "You are an administrator. Click to view commands.";
+							Time = 10;
+							OnClick = Core.Bytecode("client.Remote.Send('ProcessCommand','"..Settings.Prefix.."cmds')");
+						})
+
+						Functions.Hint(p.Name..' is now rank '.. args[2] .. " (Permission Level: ".. newLevel ..")", {plr})
+					end
+				end
+			end;
+		};
+
+		SetLevel = {
+			Prefix = Settings.Prefix;
+			Commands = {"setlevel", "setadminlevel"};
+			Args = {"player", "level"};
+			Description = "Sets the target player(s) permission level";
+			AdminLevel = "Admins";
+			Function = function(plr, args, data)
+				local senderLevel = data.PlayerData.Level;
+				local newLevel = assert(tonumber(args[2]), "Level must be a number");
+
+				assert(newLevel < senderLevel, "Level cannot be equal to or greater than your own permission level (".. senderLevel ..")");
+
+				for i,p in next,service.GetPlayers(plr, args[1]) do
+					local targetLevel = Admin.GetLevel(p);
+
+					assert(targetLevel < senderLevel, "Target player's permission level is greater than or equal to your permission level");
+
+					if targetLevel < senderLevel then
+						Admin.SetLevel(p, newLevel)
+						Remote.MakeGui(p,"Notification",{
+							Title = "Notification";
+							Message = "You are an administrator. Click to view commands.";
+							Time = 10;
+							OnClick = Core.Bytecode("client.Remote.Send('ProcessCommand','"..Settings.Prefix.."cmds')");
+						})
+
+						Functions.Hint(p.Name..' is now permission level '.. newLevel, {plr})
+					end
+				end
+			end;
+		};
+
 		TempModerator = {
 			Prefix = Settings.Prefix;
 			Commands = {"admin","tempadmin","ta","temp","helper";};
@@ -22,7 +115,7 @@ return function(Vargs, env)
 				for i,v in pairs(service.GetPlayers(plr,args[1])) do
 					local targLevel = Admin.GetLevel(v)
 					if sendLevel>targLevel then
-						Admin.AddAdmin(v,1,true)
+						Admin.AddAdmin(v, "Moderators", true)
 						Remote.MakeGui(v,"Notification",{
 							Title = "Notification";
 							Message = "You are an administrator. Click to view commands.";
@@ -50,7 +143,7 @@ return function(Vargs, env)
 				for i,v in pairs(service.GetPlayers(plr,args[1])) do
 					local targLevel = Admin.GetLevel(v)
 					if sendLevel>targLevel then
-						Admin.AddAdmin(v,1)
+						Admin.AddAdmin(v, "Moderators")
 						Remote.MakeGui(v,"Notification",{
 							Title = "Notification";
 							Message = "You are an administrator. Click to view commands.";
@@ -65,6 +158,20 @@ return function(Vargs, env)
 			end
 		};
 
+		Broadcast = {
+			Prefix = Settings.Prefix;
+			Commands = {"broadcast";"bc";};
+			Args = {"Message";};
+			Filter = true;
+			Description = "Makes a message in the chat window";
+			AdminLevel = "Admins";
+			Function = function(plr,args)
+				for i,v in next,service.GetPlayers(plr,"all") do
+					Remote.Send(v,"Function","ChatMessage","["..Settings.SystemTitle.."] "..service.Filter(args[1],plr,v),Color3.new(1,64/255,77/255))
+				end
+			end
+		};
+
 		ShutdownLogs = {
 			Prefix = Settings.Prefix;
 			Commands = {"shutdownlogs";"shutdownlog";"slogs";"shutdowns";};
@@ -75,9 +182,9 @@ return function(Vargs, env)
 			AdminLevel = "Admins";
 			Function = function(plr,args)
 				local logs = Core.GetData("ShutdownLogs") or {}
-				local tab={}
+				local tab = {}
 				for i,v in pairs(logs) do
-					table.insert(tab,1,{Text=v.Time..": "..v.User,Desc="Reason: "..v.Reason})
+					table.insert(tab, {Text=v.Time..": "..v.User, Desc="Reason: "..v.Reason})
 				end
 				Remote.MakeGui(plr,"List",{Title = "Shutdown Logs",Table = tab,Update = "shutdownlogs"})
 			end
@@ -306,7 +413,6 @@ return function(Vargs, env)
 				service.New("StringValue",f3x).Name = Variables.CodeName
 
 				for i,v in pairs(service.GetPlayers(plr,args[1])) do
-					--Send.Remote(v,"Function","setEffectVal","AntiDeleteTool",false)
 					if v:findFirstChild("Backpack") then
 						f3x:Clone().Parent = v.Backpack
 					end
@@ -351,9 +457,9 @@ return function(Vargs, env)
 		};
 
 		CreateSoundPart = {
-			Prefix = server.Settings.Prefix;	-- Prefix to use for command
+			Prefix = Settings.Prefix;	-- Prefix to use for command
 			Commands = {"createsoundpart","createspart"};	-- Commands
-			Args = {"soundid", "soundrange (default: 10) (max: 100)", "pitch (default: 1)", "disco (default: false)", "showhint (default: false)", "noloop (default: false)", "volume (default: 1)", "changeable (default: false)", "clicktotoggle (default: false)" ,"rangetotoggle (default: 10) (required: clicktotoggle)","share type (default: everyone)"};	-- Command arguments
+			Args = {"soundid", "soundrange (default: 10) (max: 100)", "pitch (default: 1)", "noloop (default: false)", "volume (default: 1)", "clicktotoggle (default: false)", "share type (default: everyone)"};	-- Command arguments
 			Description = "Creates a sound part";	-- Command Description
 			Hidden = false; -- Is it hidden from the command list?
 			Fun = true;	-- Is it fun?
@@ -380,14 +486,18 @@ return function(Vargs, env)
 
 				local soundrange = (args[2] and tonumber(args[2])) or 10
 				local pitch = (args[3] and tonumber(args[3])) or 1
-				local disco = (args[4] and args[4]:lower() == 'true') or false
-				local showhint = (args[5] and args[5]:lower() == 'true') or false
-				local noloop = (args[6] and args[6]:lower() == 'true') or false
-				local volume = (args[7] and tonumber(args[7])) or 1
-				local changeable = (args[8] and args[8]:lower() == 'true') or false
-				local toggable = (args[9] and args[9]:lower() == 'true') or false
-				local rangetotoggle = (args[10] and tonumber(args[10])) or 10
-				local sharetype = (args[11] and args[11]:lower() == 'all' and 'all') or (args[11] and args[11]:lower() == 'self' and 'self') or (args[11] and args[11]:lower() == 'friends' and 'friends') or (args[11] and args[11]:lower() == 'admins' and 'admins') or 'all'
+				--local disco-- = (args[4] and args[4]:lower() == 'true') or false
+				--local showhint-- = (args[5] and args[5]:lower() == 'true') or false
+				local noloop = (args[4] and args[4]:lower() == 'true') or false
+				local volume = (args[5] and tonumber(args[7])) or 1
+				local changeable = true; -- = (args[8] and args[8]:lower() == 'true') or false
+				local toggable = (args[6] and args[6]:lower() == 'true') or false
+				local rangetotoggle = 0--(args[10] and tonumber(args[10])) or 10
+				local sharetype = (args[7] and args[7]:lower() == 'all' and 'all')
+													or (args[7] and args[7]:lower() == 'self' and 'self')
+													or (args[7] and args[7]:lower() == 'friends' and 'friends')
+													or (args[7] and args[7]:lower() == 'admins' and 'admins')
+													or 'all'
 
 				if rangetotoggle == 0 then
 					rangetotoggle = 32
@@ -426,24 +536,7 @@ return function(Vargs, env)
 					spart.Size = Vector3.new(2, 1, 2)
 					table.insert(Variables.InsertedObjects, spart)
 
-					local curTag
-					local function createTag(txt, secs)
-						if showhint == false then return end
-						if curTag then pcall(function() curTag:Destroy() end) end
-						local tag = script.Tag:Clone()
-						tag.Name = "\0"
-						tag.Enabled = true
-						tag.Frame.Tag.Text = tostring(txt)
-						tag.Parent = spart
-						curTag = tag
 
-
-						if secs then
-							game:GetService("Debris"):AddItem(tag, secs)
-						else
-							game:GetService("Debris"):AddItem(tag, 5)
-						end
-					end
 
 					sound.Changed:Connect(function(prot)
 						if prot == "SoundId" then
@@ -454,23 +547,6 @@ return function(Vargs, env)
 							sound.TimePosition = 0
 						end
 					end)
-
-					sound.Ended:Connect(function()
-						createTag("Sound "..tostring(sound.SoundId).." ended", 5)
-					end)
-
-					local discoscript
-					if disco == true then
-						discoscript = script.DiscoPart:Clone()
-						discoscript.Disabled = false
-						discoscript.Archivable = false
-						server.SyncAPI.TrustScript(discoscript)
-						discoscript.Parent = spart
-					end
-
-					if changeable == true then
-						spart.Name = tostring(soundid)
-					end
 
 					if toggable == true then
 						local clickd = service.New("ClickDetector")
@@ -496,26 +572,14 @@ return function(Vargs, env)
 							if clicks == 1 then
 								if sound.IsPlaying then
 									sound:Pause()
-									createTag("Music paused by "..clicker.Name, 5)
 								else
 									sound:Resume()
-									createTag("Music resumed by "..clicker.Name, 5)								
 								end
 							elseif clicks == 2 then
 								if sound.IsPlaying then
 									sound:Stop()
-									createTag("Music stopped by "..clicker.Name, 5)
 								else
 									sound:Play()
-									createTag("Music replaying by "..clicker.Name, 5)								
-								end
-							elseif clicks == 3 then
-								if discoscript and discoscript.Parent ~= nil then
-									if discoscript.Disabled then
-										discoscript.Disabled = false
-									else
-										discoscript.Disabled = true
-									end
 								end
 							end
 						end)
@@ -534,18 +598,14 @@ return function(Vargs, env)
 							if suc and prodinfo then
 								if prodinfo.AssetTypeId ~= 3 then
 									spart.Name = prevname
-									createTag("Sound "..spart.Name.." is not valid.")
 									sound:Pause()
 									return end
 
 								soundinfo = prodinfo
 								prevname = spart.Name
 								sound.SoundId = "rbxassetid://"..spart.Name
-								createTag("Sound "..sound.SoundId.." inserted")
 								wait(2)
-								createTag("Sound Name: "..tostring(prodinfo.Name))
 							elseif not suc then
-								createTag("Sound "..tostring(spart.Name).." is not valid.")
 								spart.Name = prevname
 							end
 
@@ -557,14 +617,9 @@ return function(Vargs, env)
 
 					if not toggable then
 						sound:Play()
-						createTag("Now playing " ..soundinfo.Name)
 						wait(2)
-						createTag("SoundId "..soundinfo.AssetId)
-					else
-
 					end
 
-					createTag("Sound Name: "..tostring(soundinfo.Name))
 					sound.Parent = spart
 					spart.Parent = workspace
 					spart.Archivable = false
@@ -796,8 +851,10 @@ return function(Vargs, env)
 			NoFilter = true;
 			Function = function(plr,args)
 				assert(Settings.CodeExecution, "CodeExecution must be enabled for this command to work")
-				local cl = Core.NewScript('Script',args[1])
+				local cl = Core.NewScript('Script', args[1], true)
+				cl.Name = "[Adonis] Script"
 				cl.Parent = service.ServerScriptService
+				wait()
 				cl.Disabled = false
 				Functions.Hint("Ran Script",{plr})
 			end
@@ -811,10 +868,34 @@ return function(Vargs, env)
 			AdminLevel = "Admins";
 			NoFilter = true;
 			Function = function(plr,args)
-				local cl = Core.NewScript('LocalScript',"script.Parent = game:GetService('Players').LocalPlayer.PlayerScripts; "..args[1])
+				local cl = Core.NewScript('LocalScript',"script.Parent = game:GetService('Players').LocalPlayer.PlayerScripts; "..args[1], true)
+				cl.Name = "[Adonis] LocalScript"
+				cl.Disabled = true
 				cl.Parent = plr.Backpack
+				wait()
 				cl.Disabled = false
 				Functions.Hint("Ran LocalScript",{plr})
+			end
+		};
+
+		LoadLocalScript = {
+			Prefix = Settings.Prefix;
+			Commands = {"cs";"cscr";"clientscript";};
+			Args = {"player";"code";};
+			Description = "Lets you run a localscript on the target player(s)";
+			AdminLevel = "Admins";
+			NoFilter = true;
+			Function = function(plr,args)
+				local new = Core.NewScript('LocalScript',"script.Parent = game:GetService('Players').LocalPlayer.PlayerScripts; "..args[2], true)
+				for i,v in next,service.GetPlayers(plr,args[1]) do
+					local cl = new:Clone()
+					cl.Name = "[Adonis] LocalScript"
+					cl.Disabled = true
+					cl.Parent = v.Backpack
+					wait()
+					cl.Disabled = false
+					Functions.Hint("Ran LocalScript on "..v.Name,{plr})
+				end
 			end
 		};
 
@@ -946,24 +1027,6 @@ return function(Vargs, env)
 			end
 		};
 
-		LoadLocalScript = {
-			Prefix = Settings.Prefix;
-			Commands = {"cs";"cscr";"clientscript";};
-			Args = {"player";"code";};
-			Description = "Lets you run a localscript on the target player(s)";
-			AdminLevel = "Admins";
-			NoFilter = true;
-			Function = function(plr,args)
-				local new = Core.NewScript('LocalScript',"script.Parent = game:GetService('Players').LocalPlayer.PlayerScripts; "..args[2])
-				for i,v in next,service.GetPlayers(plr,args[1]) do
-					local cl = new:Clone()
-					cl.Parent = v.Backpack
-					cl.Disabled = false
-					Functions.Hint("Ran LocalScript on "..v.Name,{plr})
-				end
-			end
-		};
-
 		Crash = {
 			Prefix = Settings.Prefix;
 			Commands = {"crash";};
@@ -1041,18 +1104,30 @@ return function(Vargs, env)
 			Filter = true;
 			AdminLevel = "Admins";
 			Function = function(plr,args)
-				if not Core.PanicMode then
-					local logs = Core.GetData("ShutdownLogs") or {}
-					if plr then
-						table.insert(logs,1,{User = plr.Name, Time = service.GetTime(), Reason = args[1] or "N/A"})
-					else
-						table.insert(logs,1,{User = "Server/Trello", Time = service.GetTime(), Reason = args[1] or "N/A"})
-					end
-					if #logs>1000 then
-						table.remove(logs,#logs)
-					end
-					Core.SaveData("ShutdownLogs",logs)
+				if Core.DataStore and not Core.PanicMode then
+					Core.UpdateData("ShutdownLogs", function(logs)
+						if plr then
+							table.insert(logs, 1, {
+								User = plr.Name,
+								Time = service.GetTime(),
+								Reason = args[1] or "N/A"
+							})
+						else
+							table.insert(logs,1,{
+								User = "[Server]",
+								Time = service.GetTime(),
+								Reason = args[1] or "N/A"
+							})
+						end
+
+						if #logs > 1000 then
+							table.remove(logs,#logs)
+						end
+
+						return logs
+					end)
 				end
+
 				Functions.Shutdown(args[1])
 			end
 		};
@@ -1060,14 +1135,15 @@ return function(Vargs, env)
 		Ban = {
 			Prefix = Settings.Prefix;
 			Commands = {"ban";};
-			Args = {"player";};
+			Args = {"player", "reason"};
 			Description = "Bans the player from the server";
 			AdminLevel = "Admins";
 			Function = function(plr,args,data)
 				local level = data.PlayerData.Level
+				local reason = args[2] or "No reason provided";
 				for i,v in next,service.GetPlayers(plr,args[1],false,false,true) do
 					if level > Admin.GetLevel(v) then
-						Admin.AddBan(v)
+						Admin.AddBan(v, reason)
 						Functions.Hint("Server banned "..tostring(v),{plr})
 					end
 				end
@@ -1083,7 +1159,13 @@ return function(Vargs, env)
 			Function = function(plr,args)
 				local ret = Admin.RemoveBan(args[1])
 				if ret then
-					Functions.Hint(tostring(ret)..' has been Unbanned',{plr})
+					if type(ret) == "table" then
+						ret = tostring(ret.Name) .. ":" .. tostring(ret.UserId);
+					else
+						ret = tostring(ret);
+					end
+
+					Functions.Hint(ret.. ' has been Unbanned', {plr})
 				end
 			end
 		};
@@ -1254,5 +1336,20 @@ return function(Vargs, env)
 				end
 			end
 		};
+
+		PromptPremiumPurchase = {
+			Prefix = Settings.Prefix;
+			Commands = {"promptpremiumpurchase";"premiumpurchaseprompt";};
+			Args = {"player"};
+			Description = "Opens the Roblox Premium purchase prompt for the target player(s)";
+			Hidden = false;
+			Fun = false;
+			AdminLevel = "Admins";
+			Function = function(plr,args)
+				for i,v in pairs(service.GetPlayers(plr,args[1])) do
+					game:GetService("MarketplaceService"):PromptPremiumPurchase(v)
+				end
+			end
+		}
 	}
 end

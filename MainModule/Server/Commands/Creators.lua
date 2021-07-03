@@ -3,29 +3,31 @@ return function(Vargs, env)
 	local service = Vargs.Service;
 
 	local Settings = server.Settings
-	local Functions, Commands, Admin, Anti, Core, HTTP, Logs, Remote, Process, Variables, Deps = 
+	local Functions, Commands, Admin, Anti, Core, HTTP, Logs, Remote, Process, Variables, Deps =
 		server.Functions, server.Commands, server.Admin, server.Anti, server.Core, server.HTTP, server.Logs, server.Remote, server.Process, server.Variables, server.Deps
-	
+
 	if env then setfenv(1, env) end
-	
+
 	return {
 		DirectBan = {
 			Prefix = Settings.Prefix;
 			Commands = {"directban"};
-			Args = {"player";};
+			Args = {"player", "reason"};
 			Description = "DirectBans the player (Saves)";
 			AdminLevel = "Creators";
 			Function = function(plr,args,data)
-				for i in string.gmatch(args[1], "[^,]+") do
-					local userid = service.Players:GetUserIdFromNameAsync(i)
+				local reason = args[2] or "No reason provided";
 
-					if userid == plr.UserId then
+				for i in string.gmatch(args[1], "[^,]+") do
+					local UserId = service.Players:GetUserIdFromNameAsync(i)
+
+					if UserId == plr.UserId then
 						error("You cannot ban yourself or the creator of the game", 2)
 						return
 					end
 
-					if userid then
-						Admin.AddBan({UserId = userId, Name = i}, true)
+					if UserId then
+						Admin.AddBan({UserId = UserId, Name = i}, reason, true)
 						Functions.Hint("Direct banned "..i, {plr})
 					end
 				end
@@ -40,6 +42,7 @@ return function(Vargs, env)
 			AdminLevel = "Creators";
 			Function = function(plr,args,data)
 				for i in string.gmatch(args[1], "[^,]+") do
+
 					local userid = service.Players:GetUserIdFromNameAsync(i)
 
 					if userid then
@@ -54,12 +57,12 @@ return function(Vargs, env)
 				end
 			end
 		};
-		
+
 		GlobalPlace = {
 			Prefix = Settings.Prefix;
 			Commands = {"globalplace","gplace"};
 			Args = {"placeid"};
-			Description = "Sends a global message to all servers";
+			Description = "Force all game-players to teleport to a desired place";
 			AdminLevel = "Creators";
 			CrossServerDenied = true;
 			Function = function(plr,args)
@@ -71,7 +74,7 @@ return function(Vargs, env)
 				end
 			end;
 		};
-		
+
 		ForcePlace = {
 			Prefix = Settings.Prefix;
 			Commands = {"forceplace";};
@@ -98,7 +101,7 @@ return function(Vargs, env)
 				end
 			end
 		};
-		
+
 		GivePlayerPoints = {
 			Prefix = Settings.Prefix;
 			Commands = {"giveppoints";"giveplayerpoints";"sendplayerpoints";};
@@ -121,7 +124,7 @@ return function(Vargs, env)
 				end
 			end
 		};
-		
+
 		Settings = {
 			Prefix = "";
 			Commands = {":adonissettings", Settings.Prefix.. "settings", Settings.Prefix.. "scriptsettings"};
@@ -134,13 +137,13 @@ return function(Vargs, env)
 				Remote.MakeGui(plr,"UserPanel",{Tab = "Settings"})
 			end
 		};
-		
-		Owner = {
+
+		MakeHeadAdmin = {
 			Prefix = Settings.Prefix;
-			Commands = {"owner","oa","headadmin"};
+			Commands = {"headadmin","owner","hadmin","oa"};
 			Args = {"player";};
 			Hidden = false;
-			Description = "Makes the target player(s) an owner; Saves";
+			Description = "Makes the target player(s) a HeadAdmin; Saves";
 			Fun = false;
 			AdminLevel = "Creators";
 			Function = function(plr, args, data)
@@ -148,7 +151,7 @@ return function(Vargs, env)
 				for i,v in pairs(service.GetPlayers(plr,args[1])) do
 					local targLevel = Admin.GetLevel(v)
 					if sendLevel>targLevel then
-						Admin.AddAdmin(v,3)
+						Admin.AddAdmin(v, "HeadAdmins")
 						Remote.MakeGui(v,"Notification",{
 							Title = "Notification";
 							Message = "You are an administrator. Click to view commands.";
@@ -162,7 +165,7 @@ return function(Vargs, env)
 				end
 			end
 		};
-		
+
 		Sudo = {
 			Prefix = Settings.Prefix;
 			Commands = {"sudo"};
@@ -180,15 +183,19 @@ return function(Vargs, env)
 		ClearPlayerData = {
 			Prefix = Settings.Prefix;
 			Commands = {"clearplayerdata"};
-			Arguments = {"userId"};
-			Description = "Clears player data for target";
+			Arguments = {"UserId"};
+			Description = "Clears PlayerData linked to the specified UserId";
 			AdminLevel = "Creators";
 			Function = function(plr, args)
-				local id = tonumber(args[1]) or plr.UserId
-				Remote.PlayerData[id] = Core.DefaultData()
+				local id = tonumber(args[1]);
+				assert(id, "Must supply valid UserId");
+
+				Core.RemoveData(tostring(id));
+				Core.PlayerData[tostring(id)] = nil;
+
 				Remote.MakeGui(plr,"Notification",{
 					Title = "Notification";
-					Message = "Cleared data";
+					Message = "Cleared data for ".. id;
 					Time = 10;
 				})
 			end;
@@ -205,7 +212,7 @@ return function(Vargs, env)
 				Remote.MakeGui(plr,"Terminal")
 			end
 		};
-		
+
 		--[[
 		TaskManager = { --// Unfinished
 			Prefix = Settings.Prefix;
@@ -227,7 +234,7 @@ return function(Vargs, env)
 			Hidden = false;
 			Description = "Data persistent ban the target player(s); Undone using :undataban";
 			Fun = false;
-			AdminLevel = "Owners";
+			AdminLevel = "HeadAdmins";
 			Function = function(plr,args)
 				for i,v in pairs(service.GetPlayers(plr,args[1],false,false,true)) do
 					if not Admin.CheckAdmin(v) then
@@ -256,7 +263,7 @@ return function(Vargs, env)
 			Hidden = false;
 			Description = "Removes any data persistence bans (timeban or permban)";
 			Fun = false;
-			AdminLevel = "Owners";
+			AdminLevel = "HeadAdmins";
 			Function = function(plr,args)
 				assert(args[1],"Argument missing or nil")
 

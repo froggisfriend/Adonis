@@ -20,11 +20,23 @@ return function(Vargs)
 		Variables = server.Variables;
 		Settings = server.Settings;
 
+		Functions.Init = nil;
 		Logs:AddLog("Script", "Functions Module Initialized")
 	end;
 
+	local function RunAfterPlugins(data)
+			--// AutoClean
+			if Settings.AutoClean then
+				service.StartLoop("AUTO_CLEAN", Settings.AutoCleanDelay, Functions.CleanWorkspace, true)
+			end
+
+			Functions.RunAfterPlugins = nil;
+			Logs:AddLog("Script", "Functions Module RunAfterPlugins Finished");
+	end
+
 	server.Functions = {
 		Init = Init;
+		RunAfterPlugins = RunAfterPlugins;
 		PlayerFinders = {
 			["me"] = {
 				Match = "me";
@@ -69,7 +81,7 @@ return function(Vargs)
 				Match = "@everyone";
 				Absolute = true;
 				Function = function(...)
-					return Functions.PlayerMatchers.all.Function(...)
+					return Functions.PlayerFinders.all.Function(...)
 				end
 			};
 
@@ -114,7 +126,7 @@ return function(Vargs)
 				Prefix = true;
 				Absolute = true;
 				Function = function(msg, plr, parent, players, getplr, plus, isKicking)
-					for i,v in next,parent:children() do
+					for i,v in next,parent:GetChildren() do
 						local p = getplr(v)
 						if Admin.CheckAdmin(p,false) then
 							table.insert(players, p)
@@ -129,7 +141,7 @@ return function(Vargs)
 				Prefix = true;
 				Absolute = true;
 				Function = function(msg, plr, parent, players, getplr, plus, isKicking)
-					for i,v in next,parent:children() do
+					for i,v in next,parent:GetChildren() do
 						local p = getplr(v)
 						if not Admin.CheckAdmin(p,false) then
 							table.insert(players,p)
@@ -144,11 +156,30 @@ return function(Vargs)
 				Prefix = true;
 				Absolute = true;
 				Function = function(msg, plr, parent, players, getplr, plus, isKicking)
-					for i,v in next,parent:children() do
+					for i,v in next,parent:GetChildren() do
 						local p = getplr(v)
 						if p:IsFriendsWith(plr.userId) then
 							table.insert(players,p)
 							plus()
+						end
+					end
+				end;
+			};
+
+			["@username"] = {
+				Match = "@";
+				Function = function(msg, plr, parent, players, getplr, plus, isKicking)
+					local matched = tonumber(msg:match("@(.*)"))
+					local foundNum = 0
+
+					if matched then
+						for i,v in next,parent:GetChildren() do
+							local p = getplr(v)
+							if p and p.Name == matched then
+								table.insert(players,p)
+								plus()
+								foundNum = foundNum+1
+							end
 						end
 					end
 				end;
@@ -233,13 +264,13 @@ return function(Vargs)
 					end
 				end;
 			};
-			
+
 			["displayname-"] = {
 				Match = "displayname-";
 				Function = function(msg, plr, parent, players, getplr, plus, isKicking)
 					local matched = tonumber(msg:match("displayname%-(.*)"))
 					local foundNum = 0
-					
+
 					if matched then
 						for i,v in next,parent:children() do
 							local p = getplr(v)
@@ -344,8 +375,17 @@ return function(Vargs)
 						end
 					end
 				end;
-			};			
+			};
 		};
+
+		GetChatService = function()
+			local chatHandler = service.ServerScriptService:WaitForChild("ChatServiceRunner", 120);
+			local chatMod = chatHandler and chatHandler:WaitForChild("ChatService", 120);
+
+			if chatMod then
+				return require(chatMod);
+			end
+		end;
 
 		IsClass = function(obj, classList)
 			for _,class in next,classList do
@@ -370,7 +410,7 @@ return function(Vargs)
 		end;
 
 		GetPlayers = function(plr, names, dontError, isServer, isKicking, noID)
-			local players = {} 
+			local players = {}
 			local prefix = Settings.SpecialPrefix
 			if isServer then prefix = "" end
 			local parent = service.NetworkServer or service.Players
@@ -419,11 +459,21 @@ return function(Vargs)
 						if matchFunc then
 							matchFunc.Function(s, plr, parent, players, getplr, plus, isKicking, isServer, dontError)
 						else
-							for i,v in next,parent:children() do
+							for i,v in next,parent:GetChildren() do
 								local p = getplr(v)
-								if p and p.Name:lower():sub(1,#s)==s:lower() then
+								if p and p:IsA("Player") and p.DisplayName:lower():sub(1,#s) == s:lower() then
 									table.insert(players,p)
 									plus()
+								end
+							end
+
+							if plrs == 0 then
+								for i,v in next,parent:GetChildren() do
+									local p = getplr(v)
+									if p and p:IsA("Player") and p.Name:lower():sub(1,#s) == s:lower() then
+										table.insert(players,p)
+										plus()
+									end
 								end
 							end
 
@@ -454,8 +504,8 @@ return function(Vargs)
 							end
 						end
 
-						if plrs == 0 and not dontError then 
-							Remote.MakeGui(plr,'Output',{Title = 'Output'; Message = 'No players matching '..s..' were found!'}) 
+						if plrs == 0 and not dontError then
+							Remote.MakeGui(plr,'Output',{Title = 'Output'; Message = 'No players matching '..s..' were found!'})
 						end
 					end
 				end
@@ -486,11 +536,11 @@ return function(Vargs)
 				Res[Idx] = string.format('%02x', math.random(126));
 			end;
 			return table.concat(Res)
-		end; 
+		end;
 
 		Base64Encode = function(data)
 			local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-			return ((data:gsub('.', function(x) 
+			return ((data:gsub('.', function(x)
 				local r,b='',x:byte()
 				for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0') end
 				return r;
@@ -560,7 +610,7 @@ return function(Vargs)
 
 		SetView = function(ob)
 			if ob == 'reset' then
-				workspace.CurrentCamera.CameraType = 'Custom' 
+				workspace.CurrentCamera.CameraType = 'Custom'
 				workspace.CurrentCamera.CameraSubject = service.Player.Character.Humanoid
 				workspace.CurrentCamera.FieldOfView = 70
 			else
@@ -631,8 +681,8 @@ return function(Vargs)
 			Functions.UnCape(player)
 			local torso = player.Character:FindFirstChild("HumanoidRootPart")
 			if torso then
-				if type(color) == "table" then 
-					color = Color3.new(color[1],color[2],color[3]) 
+				if type(color) == "table" then
+					color = Color3.new(color[1],color[2],color[3])
 				end
 
 				local data = {
@@ -672,34 +722,34 @@ return function(Vargs)
 
 		ApplyBodyPart = function(character, model)
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			if humanoid then 
+			if humanoid then
 				local rigType = humanoid.RigType == Enum.HumanoidRigType.R6 and "R6" or "R15"
 				local part = model:FindFirstChild(rigType)
 
-				if not part and rigType == "R15" then 
+				if not part and rigType == "R15" then
 					part = model:FindFirstChild("R15Fixed") -- some bundles dont have the normal R15 folder...
 				end
 
-				if part then 
-					if rigType == "R6" then 
+				if part then
+					if rigType == "R6" then
 						local children = character:GetChildren()
-						for _,v in pairs(part:GetChildren()) do 
+						for _,v in pairs(part:GetChildren()) do
 							for _,x in pairs(children) do
-								if x:IsA("CharacterMesh") and x.BodyPart == v.BodyPart then 
+								if x:IsA("CharacterMesh") and x.BodyPart == v.BodyPart then
 									x:Destroy()
-								end 
+								end
 							end
 							v:Clone().Parent = character
-						end 
-					elseif rigType == "R15" then 
-						local validParts = {}
-						for _,x in pairs(Enum.BodyPartR15:GetEnumItems()) do 
-							validParts[x.Name] = x.Value 
 						end
-						for _,v in pairs(part:GetChildren()) do 
-							if validParts[v.Name] then 
+					elseif rigType == "R15" then
+						local validParts = {}
+						for _,x in pairs(Enum.BodyPartR15:GetEnumItems()) do
+							validParts[x.Name] = x.Value
+						end
+						for _,v in pairs(part:GetChildren()) do
+							if validParts[v.Name] then
 								humanoid:ReplaceBodyPartR15(validParts[v.Name], v:Clone())
-							end 
+							end
 						end
 					end
 				end
@@ -709,7 +759,7 @@ return function(Vargs)
 		GetJoints = function(character)
 			local temp = {}
 			for _,v in pairs(character:GetDescendants()) do
-				if v:IsA("Motor6D") then 
+				if v:IsA("Motor6D") then
 					temp[v.Name] = v -- assumes no 2 joints have the same name, hopefully this wont cause issues
 				end
 			end
@@ -737,7 +787,7 @@ return function(Vargs)
 			local str = ''
 
 			for arg in msg:gmatch('([^'..key..']+)') do
-				if #tab>=num then 
+				if #tab>=num then
 					break
 				elseif #tab>=num-1 then
 					table.insert(tab,msg:sub(#str+1,#msg))
@@ -766,28 +816,42 @@ return function(Vargs)
 			return num
 		end;
 
-		GetTexture = function(ID)
-			ID = Functions.Trim(tostring(ID))
-			local created
+		GetTextureUsingHttp = function(id)
+			if service.HttpService.HttpEnabled then
+				local id = tonumber(id);
 
-			if not tonumber(ID) then 
-				return false 
-			else 
-				ID = tonumber(ID) 
-			end
-
-			if not pcall(function() updated=service.MarketPlace:GetProductInfo(ID).Created:match("%d+-%d+-%S+:%d+") end) then 
-				return false
-			end
-
-			for i = 0,10 do
-				local info
-				local ran,error = pcall(function() info = service.MarketPlace:GetProductInfo(ID-i) end)
-				if ran then
-					if info.AssetTypeId == 1 and info.Created:match("%d+-%d+-%S+:%d+") == updated then
-						return ID-i
+				if id then
+					if Functions.IsValidTexture(id) then
+						if info.AssetTypeId == 1 then
+							return id;
+						else
+						--// do http stuff?????
+							return 6825455804;
+						end
 					end
+				else
+					error("Invalid assetid provided");
 				end
+			end
+		end;
+
+		IsValidTexture = function(id)
+			local id = tonumber(id)
+			local ran, info = pcall(function() return service.MarketPlace:GetProductInfo(id) end)
+
+			if ran and info and info.AssetTypeId == 1 then
+				return true;
+			else
+				return false;
+			end
+		end;
+
+		GetTexture = function(id)
+			local id = tonumber(id);
+			if id and Functions.IsValidTexture(id) then
+				return id;
+			else
+				return 6825455804;
 			end
 		end;
 
@@ -803,23 +867,10 @@ return function(Vargs)
 			return math.floor((num*(10^(places or 0)))+0.5)/(10^(places or 0))
 		end;
 
-		GetOldDonorList = function()
-			local temp={}
-			for k,asset in pairs(service.InsertService:GetCollection(1290539)) do
-				local ins=service.MarketPlace:GetProductInfo(asset.AssetId)
-				local fo=ins.Description
-				for so in fo:gmatch('[^;]+') do
-					local name,id,cape,color=so:match('{(.*),(.*),(.*),(.*)}')
-					table.insert(temp,{Name=name,Id=tostring(id),Cape=tostring(cape),Color=color,Material='Plastic',List=ins.Name})
-				end
-			end
-			Variables.OldDonorList = temp
-		end;
-
 		CleanWorkspace = function()
-			for i,v in pairs(service.Workspace:children()) do 
-				if v:IsA("Tool") or v:IsA("Accessory") or v:IsA("Hat") then 
-					v:Destroy() 
+			for i,v in pairs(service.Workspace:children()) do
+				if v:IsA("Tool") or v:IsA("Accessory") or v:IsA("Hat") then
+					v:Destroy()
 				end
 			end
 		end;
@@ -830,10 +881,10 @@ return function(Vargs)
 					if v:IsA("Weld") then
 						if v.Part1 ~= nil and v.Part1.Name=="HumanoidRootPart" then
 							v:Destroy()
-						end 
-					end 
-				end 
-			end 
+						end
+					end
+				end
+			end
 		end;
 
 		GrabNilPlayers = function(name)
@@ -857,24 +908,16 @@ return function(Vargs)
 
 		Shutdown = function(reason)
 			if not Core.PanicMode then
-				Functions.Message("SYSTEM MESSAGE", "Shutting down...", service.Players:GetChildren(), false, 5) 
+				Functions.Message("SYSTEM MESSAGE", "Shutting down...", service.Players:GetChildren(), false, 5)
 				wait(1)
 			end
 
-			service.Players.PlayerAdded:connect(function(p)
-				p:Kick("Game shutdown: ".. tostring(reason or "No Reason Given"))
+			service.Players.PlayerAdded:Connect(function(p)
+				p:Kick("Game shutdown\n\n".. tostring(reason or "No Reason Given"))
 			end)
 
-			for i,v in pairs(service.NetworkServer:children()) do
-				service.Routine(function()
-					if v and v:GetPlayer() then
-						v:GetPlayer():Kick("Game shutdown: ".. tostring(reason or "No Reason Given"))
-						wait(30)
-						if v.Parent and v:GetPlayer() then
-							Remote.Send(v:GetPlayer(),'Function','KillClient')
-						end
-					end
-				end)
+			for i,p in next,service.Players:GetPlayers() do
+				p:Kick("Game shutdown\n\n" .. tostring(reason or "No Reason Given"))
 			end
 		end;
 
@@ -884,11 +927,11 @@ return function(Vargs)
 				local donor = PlayerData.Donor or {}
 				if donor and donor.Enabled then
 					local img,color,material
-					if donor and donor.Cape then 
+					if donor and donor.Cape then
 						img,color,material = donor.Cape.Image,donor.Cape.Color,donor.Cape.Material
 					else
 						img,color,material = '0','White','Neon'
-					end 
+					end
 					if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
 						Functions.Cape(plr,true,material,color,img)
 					end
@@ -921,7 +964,7 @@ return function(Vargs)
 					end
 					num = num+1
 				end
-				if good and num==Functions.CountTable(check) then 
+				if good and num==Functions.CountTable(check) then
 					return true
 				end
 			end
@@ -946,7 +989,7 @@ return function(Vargs)
 		end;
 
 		GetIndex = function(tab,match)
-			for i,v in pairs(tab) do 
+			for i,v in pairs(tab) do
 				if v==match then
 					return i
 				elseif type(v)=="table" and type(match)=="table" then
@@ -959,7 +1002,7 @@ return function(Vargs)
 							break
 						end
 					end
-					if good then 
+					if good then
 						return i
 					end
 				end

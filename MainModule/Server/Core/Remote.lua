@@ -23,17 +23,32 @@ return function(Vargs)
 		Process = server.Process;
 		Variables = server.Variables;
 		Settings = server.Settings;
+		Defaults = server.Defaults;
 		Commands = server.Commands
 
+		Remote.Init = nil;
 		Logs:AddLog("Script", "Remote Module Initialized")
 	end;
 
+	local function RunAfterPlugins(data)
+		for com in next, Remote.Commands do
+			if string.len(com) > Remote.MaxLen then
+				Remote.MaxLen = string.len(com)
+			end
+		end
+
+		Remote.RunAfterPlugins = nil;
+		Logs:AddLog("Script", "Remote Module RunAfterPlugins Finished");
+	end
+
 	server.Remote = {
 		Init = Init;
+		RunAfterPlugins = RunAfterPlugins;
+
+		MaxLen = 0;
 		Clients = {};
 		Returns = {};
 		Sessions = {};
-		PlayerData = {};
 		PendingReturns = {};
 		EncodeCache = {};
 		DecodeCache = {};
@@ -81,7 +96,7 @@ return function(Vargs)
 			end;
 
 			TaskManager = function(p,args)
-				if Admin.GetLevel(p) >= 4 then
+				if Admin.GetLevel(p) >= 900 then
 					local action = args[1]
 					if action == "GetTasks" then
 						local tab = {}
@@ -106,6 +121,89 @@ return function(Vargs)
 			Variable = function(p,args)
 				return Variables[args[1]]
 			end;
+			
+			Default = function(p,args)
+				local setting = args[1]
+				local level = Admin.GetLevel(p)
+				local ret = nil
+				local blocked = {
+					DataStore = true;
+					DataStoreKey = true;
+
+					Trello_Enabled = true;
+					Trello_PrimaryBoard = true;
+					Trello_SecondaryBoards = true;
+					Trello_AppKey = true;
+					Trello_Token = true;
+
+					--G_Access = true;
+					G_Access_Key = true;
+					--G_Access_Perms = true;
+					--Allowed_API_Calls = true;
+				}
+
+				if type(setting) == "table" then
+					ret = {}
+					for i,set in pairs(setting) do
+						if Defaults[set] and not (blocked[set] and not level>=5) then
+							ret[set] = Defaults[set]
+						end
+					end
+				elseif type(setting) == "string" then
+					if Defaults[setting] and not (blocked[setting] and not level>=5) then
+						ret = Defaults[setting]
+					end
+				end
+
+				return ret
+			end;
+
+			AllDefaults = function(p,args)
+				if Admin.GetLevel(p) >= 900 then
+					local sets = {}
+
+					sets.Settings = {}
+					sets.Descs = server.Descriptions
+					sets.Order = server.Order
+
+					for i,v in pairs(Defaults) do
+						sets.Settings[i] = v
+					end
+
+					local blocked = {
+						HideScript = true;  -- Changing in-game will do nothing; Not able to be saved
+						DataStore = true;
+						DataStoreKey = true;
+						DataStoreEnabled = true;
+
+						--Trello_Enabled = true;
+						--Trello_PrimaryBoard = true;
+						--Trello_SecondaryBoards = true;
+						Trello_AppKey = true;
+						Trello_Token = true;
+
+						G_API = true;
+						G_Access = true;
+						G_Access_Key = true;
+						G_Access_Perms = true;
+						Allowed_API_Calls = true;
+
+						OnStartup = true;
+						OnSpawn = true;
+						OnJoin = true;
+
+						CustomRanks = true; -- Not supported yet
+					}
+
+					for setting,value in pairs(sets.Settings) do
+						if blocked[setting] then
+							sets.Settings[setting] = nil
+						end
+					end
+
+					return sets
+				end
+			end;
 
 			Setting = function(p,args)
 				local setting = args[1]
@@ -115,14 +213,14 @@ return function(Vargs)
 					DataStore = true;
 					DataStoreKey = true;
 
-					Trello_Enabled = true;	
+					Trello_Enabled = true;
 					Trello_PrimaryBoard = true;
 					Trello_SecondaryBoards = true;
 					Trello_AppKey = true;
-					Trello_Token = true; 
+					Trello_Token = true;
 
 					--G_Access = true;
-					--G_Access_Key = true;
+					G_Access_Key = true;
 					--G_Access_Perms = true;
 					--Allowed_API_Calls = true;
 				}
@@ -130,12 +228,12 @@ return function(Vargs)
 				if type(setting) == "table" then
 					ret = {}
 					for i,set in pairs(setting) do
-						if Settings[set] and not (blocked[set] and not level>=5) then 
+						if Settings[set] and not (blocked[set] and not level>=5) then
 							ret[set] = Settings[set]
 						end
 					end
 				elseif type(setting) == "string" then
-					if Settings[setting] and not (blocked[setting] and not level>=5) then 
+					if Settings[setting] and not (blocked[setting] and not level>=5) then
 						ret = Settings[setting]
 					end
 				end
@@ -143,16 +241,8 @@ return function(Vargs)
 				return ret
 			end;
 
-			UpdateList = function(p, args)
-				local list = args[1]
-				local update = Logs.ListUpdaters[list]
-				if update then
-					return update(p, unpack(args,2))
-				end
-			end;
-
 			AllSettings = function(p,args)
-				if Admin.GetLevel(p) >= 4 then
+				if Admin.GetLevel(p) >= 900 then
 					local sets = {}
 
 					sets.Settings = {}
@@ -169,7 +259,7 @@ return function(Vargs)
 						DataStoreKey = true;
 						DataStoreEnabled = true;
 
-						--Trello_Enabled = true;	
+						--Trello_Enabled = true;
 						--Trello_PrimaryBoard = true;
 						--Trello_SecondaryBoards = true;
 						Trello_AppKey = true;
@@ -185,8 +275,7 @@ return function(Vargs)
 						OnSpawn = true;
 						OnJoin = true;
 
-						AntiInsert = true;  -- Not supported yet
-						CustomRanks = true; -- Not supported yet 
+						CustomRanks = true; -- Not supported yet
 					}
 
 					for setting,value in pairs(sets.Settings) do
@@ -196,6 +285,14 @@ return function(Vargs)
 					end
 
 					return sets
+				end
+			end;
+			
+			UpdateList = function(p, args)
+				local list = args[1]
+				local update = Logs.ListUpdaters[list]
+				if update then
+					return update(p, unpack(args,2))
 				end
 			end;
 
@@ -212,13 +309,14 @@ return function(Vargs)
 				local playerData = Core.GetPlayer(p)
 				local binds = args[1]
 				local resp = "OK"
-				if type(binds)=="table" then
+				if type(binds) == "table" then
 					playerData.Keybinds = binds
 					Core.SavePlayer(p,playerData)
 					resp = "Updated"
 				else
 					resp = "Error"
 				end
+
 				return resp
 			end;
 
@@ -227,9 +325,11 @@ return function(Vargs)
 				local setting = args[1]
 				local value = args[2]
 				local data = playerData.Client or {}
+
 				data[setting] = value
 				playerData.Client = data
-				Core.SavePlayer(p,playerData)
+				Core.SavePlayer(p, playerData)
+
 				return "Updated"
 			end;
 
@@ -238,7 +338,6 @@ return function(Vargs)
 				local donor = args[1]
 				local resp = "OK"
 				if type(donor) == "table" and donor.Cape and type(donor.Cape) == "table" then
-					print(donor.Cape.Image)
 					playerData.Donor = donor
 					Core.SavePlayer(p, playerData)
 					if donor.Enabled then
@@ -252,20 +351,20 @@ return function(Vargs)
 				end
 				return resp
 			end;
-			
+
 			UpdateAliases = function(p, args)
 				local aliases = args[1] or {};
-				
+
 				if type(aliases) == "table" then
 					local data = Core.GetPlayer(p)
-					
+
 					--// check for stupid stuff
 					for i,v in next,aliases do
 						if type(i) ~= "string" or type(v) ~= "string" then
 							aliases[i] = nil
 						end
 					end
-					
+
 					data.Aliases = aliases;
 				end
 			end;
@@ -296,7 +395,7 @@ return function(Vargs)
 			end;
 
 			TerminalData = function(p,args)
-				if Admin.GetLevel(p) >= 4 then
+				if Admin.GetLevel(p) >= 900 then
 					local entry = Remote.Terminal.Data[tostring(p.UserId)]
 					if not entry then
 						Remote.Terminal.Data[tostring(p.UserId)] = {
@@ -320,7 +419,7 @@ return function(Vargs)
 			end;
 
 			Terminal = function(p,args)
-				if Admin.GetLevel(p) >= 4 then
+				if Admin.GetLevel(p) >= 900 then
 					local data = args[2]
 					local message = args[1]
 					local command = message:match("(.-) ") or message
@@ -402,7 +501,7 @@ return function(Vargs)
 						})
 
 						local func,err = Core.Loadstring(args[1], newenv)
-						if func then 
+						if func then
 							func()
 						else
 							Remote.Terminal.LiveOutput(p,"ERROR: "..tostring(err:match(":(.*)") or err))
@@ -513,36 +612,6 @@ return function(Vargs)
 		};
 
 		UnEncrypted = {
-			AddReplication = function(p,action,obj,data)
-				local na = "_SERVER"
-				local datat
-
-				if p then na = p.Name end
-				if action == "Created" then
-					--local obj = data.obj
-					local name = data.name
-					local class = data.class
-					local parent = data.parent
-					local path = data.path
-					if not obj then
-						datat = {Action=action,Parent=parent,ClassName=class,Player=na,Object=obj,Name=name,Path=path}
-					end
-				elseif action == "Destroyed" then
-					--local obj = data.obj
-					local name = data.name
-					local class = data.class
-					local parent = data.parent
-					local path = data.path
-					if obj and obj.Parent then
-						datat = {Action=action,Parent=parent,ClassName=class,Player=na,Object=obj,Name=name,Path=path}
-					end
-				end
-
-				if datat then
-					Logs.AddLog(Logs.Replications,datat)
-				end
-			end;
-
 			TrustCheck = function(p)
 				local keys = Remote.Clients[tostring(p.userId)]
 				Remote.Fire(p, "TrustCheck", keys.Special)
@@ -551,11 +620,16 @@ return function(Vargs)
 			ProcessChat = function(p,msg)
 				Process.Chat(p,msg)
 			end;
+
+			ExplorerAction = function(p, ...)
+				if Admin.CheckAdmin(p) then
+					--// Handle stuff like Dex calls(?)
+				end
+			end;
 		};
 
 		Commands = {
 			GetReturn = function(p,args)
-				print("THE CLIENT IS ASKING US FOR A RETURN")
 				local com = args[1]
 				local key = args[2]
 				local parms = {unpack(args,3)}
@@ -565,26 +639,32 @@ return function(Vargs)
 					logError(p,retable[2])
 					Remote.Send(p, "GiveReturn", key, "__ADONIS_RETURN_ERROR", retable[2])
 				else
-					print("SENT THEM A RETURN")
 					Remote.Send(p, "GiveReturn", key, unpack(retable,2))
 				end
 			end;
 
 			GiveReturn = function(p,args)
-				print("THE CLIENT GAVE US A RETURN");
 				if Remote.PendingReturns[args[1]] then
-					print("VALID PENDING RETURN");
 					Remote.PendingReturns[args[1]] = nil
 					service.Events[args[1]]:fire(unpack(args,2))
 				end
 			end;
 
-			Session = function(p,args)
+		--[[Session = function(p,args)
 				local type = args[1]
 				local data = args[2]
 				local handler = Remote.SessionHandlers[type]
 				if handler then
-					handler(p,data)
+					return handler(p, data)
+				end
+			end;--]]
+
+			Session = function(p, args)
+				local sessionKey = args[1];
+				local session = sessionKey and Remote.GetSession(sessionKey);
+
+				if session then
+					session.SessionEvent.Event:Fire(p, unpack(args, 2));
 				end
 			end;
 
@@ -606,40 +686,43 @@ return function(Vargs)
 				service.Events[tostring(args[1])..p.userId]:Fire(unpack(args,2))
 			end;
 
-			SaveTableAdd = function(p,args) 
-				if Admin.GetLevel(p)>=4 then
-					local tab = args[1]
-					local value = args[2]
+			SaveTableAdd = function(p,args)
+				if Admin.GetLevel(p) >= 900 then
+					local tabName = args[1];
+					local value = args[2];
+					local tab = Core.IndexPathToTable(tabName);
 
-					table.insert(Settings[tab],value)
+					table.insert(tab, value);
 
 					Core.DoSave({
 						Type = "TableAdd";
-						Table = tab;
+						Table = tabName;
 						Value = value;
 					})
-
 				end
 			end;
 
-			SaveTableRemove = function(p,args) 
-				if Admin.GetLevel(p)>=4 then
-					local tab = args[1]
-					local value = args[2]
-					local ind = Functions.GetIndex(Settings[tab],value)
+			SaveTableRemove = function(p,args)
+				if Admin.GetLevel(p) >= 900 then
+					local tabName = args[1];
+					local value = args[2];
+					local tab = Core.IndexPathToTable(tabName);
+					local ind = Functions.GetIndex(tab, value);
 
-					if ind then table.remove(Settings[tab],ind) end
+					if ind then
+						table.remove(tab, ind);
+					end
 
 					Core.DoSave({
 						Type = "TableRemove";
-						Table = tab;
+						Table = tabName;
 						Value = value;
 					})
 				end
 			end;
 
-			SaveSetSetting = function(p,args) 
-				if Admin.GetLevel(p) >= 4 then
+			SaveSetSetting = function(p,args)
+				if Admin.GetLevel(p) >= 900 then
 					local setting = args[1]
 					local value = args[2]
 
@@ -664,15 +747,15 @@ return function(Vargs)
 				end
 			end;
 
-			ClearSavedSettings = function(p,args) 
-				if Admin.GetLevel(p) >= 4 then
+			ClearSavedSettings = function(p,args)
+				if Admin.GetLevel(p) >= 900 then
 					Core.DoSave({Type = "ClearSettings"})
 					Functions.Hint("Cleared saved settings",{p})
 				end
 			end;
 
-			SetSetting = function(p,args) 
-				if Admin.GetLevel(p) >= 4 then
+			SetSetting = function(p,args)
+				if Admin.GetLevel(p) >= 900 then
 					local setting = args[1]
 					local value = args[2]
 
@@ -752,7 +835,7 @@ return function(Vargs)
 
 			ProcessCommand = function(p,args)
 				if Process.RateLimit(p, "Command") then
-					Process.Command(p,args[1],{Check=true})	
+					Process.Command(p,args[1],{Check=true})
 				elseif Process.RateLimit(p, "RateLog") then
 					Anti.Detected(p, "Log", string.format("Running commands too quickly (>Rate: %s/sec)", 1/Process.RateLimits.Chat));
 					warn(string.format("%s is running commands too quickly (>Rate: %s/sec)", p.Name, 1/Process.RateLimits.Chat));
@@ -789,6 +872,44 @@ return function(Vargs)
 			end;
 		};
 
+		NewSession = function(sessionType)
+			local event = service.New("BindableEvent");
+			local session = {}
+			local sessionKey = Functions.GetRandom();
+
+			session.Users = {};
+			session.SessionType = sessionType;
+			session.SessionKey = sessionKey;
+			session.SessionEvent = event;
+			session.AddUser = function(p, defaultData)
+				session.Users[p] = defaultData or {};
+			end;
+
+			session.SendToUsers = function(...)
+				for p in next,session.Users do
+					Remote.Send(p, "SessionData", sessionKey, ...)
+				end;
+			end;
+
+			session.FireEvent = function(...)
+				sessionEvent:Fire(...);
+			end;
+
+			session.End = function()
+				session.SendToUsers("SessionEnded");
+				sessionEvent:Destroy();
+				Remote.Sessions[sessionKey] = nil;
+			end
+
+			Remote.Sessions[sessionKey] = session;
+
+			return session;
+		end;
+
+		GetSession = function(sessionKey)
+			return Remote.Sessions[sessionKey];
+		end;
+
 		Fire = function(p, ...)
 			assert(p and p:IsA("Player"), "Remote.Fire: ".. tostring(p) .." is not a valid Player")
 			local keys = Remote.Clients[tostring(p.UserId)]
@@ -802,7 +923,7 @@ return function(Vargs)
 		Send = function(p,com,...)
 			assert(p and p:IsA("Player"), "Remote.Send: ".. tostring(p) .." is not a valid Player")
 			local keys = Remote.Clients[tostring(p.UserId)]
-			if keys and keys.RemoteReady == true then 
+			if keys and keys.RemoteReady == true then
 				Remote.Fire(p, Remote.Encrypt(com, keys.Key, keys.Cache),...)
 			end
 		end;
@@ -818,7 +939,7 @@ return function(Vargs)
 
 		Get = function(p,com,...)
 			local keys = Remote.Clients[tostring(p.UserId)]
-			if keys and keys.RemoteReady == true then 
+			if keys and keys.RemoteReady == true then
 				local ret = Remote.GetFire(p, Remote.Encrypt(com, keys.Key, keys.Cache),...)
 				if type(ret) == "table" then
 					return unpack(ret);
@@ -830,11 +951,11 @@ return function(Vargs)
 
 		OldGet = function(p, com, ...)
 			local keys = Remote.Clients[tostring(p.UserId)]
-			if keys and keys.RemoteReady == true then 
+			if keys and keys.RemoteReady == true then
 				local returns, finished
 				local key = Functions:GetRandom()
-				local waiter = service.New("BindableEvent") -- issue with service.Events:Wait()??????
-				local event = service.Events[key]:Connect(function(...) print("WE ARE GETTING A RETURN!") finished = true returns = {...} waiter:Fire() wait() waiter:Fire() waiter:Destroy() end)
+				local Yield = service.Yield();
+				local event = service.Events[key]:Connect(function(...) print("WE ARE GETTING A RETURN!") finished = true returns = {...} Yield:Release() end)
 
 				Remote.PendingReturns[key] = true
 				Remote.Send(p,"GetReturn",com,key,...)
@@ -845,7 +966,9 @@ return function(Vargs)
 					delay(600, function() if not finished then event:Fire() end end)
 					print(string.format("WAITING FOR RETURN %s", tostring(returns)));
 					--returns = returns or {event:Wait()}
-					waiter.Event:Wait();
+					Yield:Wait();
+					Yield:Destroy();
+
 					print(string.format("WE GOT IT! %s", tostring(returns)));
 					pEvent:Disconnect()
 				end
@@ -868,7 +991,7 @@ return function(Vargs)
 		CheckClient = function(p)
 			local ran,ret = pcall(function() return Remote.Get(p,"ClientHooked") end)
 			if ran and ret == Remote.Clients[tostring(p.UserId)].Special then
-				return true 
+				return true
 			else
 				return false
 			end
@@ -975,7 +1098,7 @@ return function(Vargs)
 			Remote.KillSession(p,type)
 			Remote.Sessions[index] = data
 		end;
-		
+
 		GetSession = function(p,type)
 			for i,v in pairs(Remote.Sessions) do
 				if v.Type == type and v.Player == p then
@@ -983,7 +1106,7 @@ return function(Vargs)
 				end
 			end
 		end;
-		
+
 		KillSession = function(p,type)
 			for i,v in pairs(Remote.Sessions) do
 				if v.Type == type and v.Player == p then
@@ -1002,7 +1125,7 @@ return function(Vargs)
 
 		Encrypt = function(str, key, cache)
 			local cache = cache or Remote.EncodeCache or {}
-			if not key or not str then 
+			if not key or not str then
 				return str
 			elseif cache[key] and cache[key][str] then
 				return cache[key][str]
@@ -1029,8 +1152,8 @@ return function(Vargs)
 
 		Decrypt = function(str, key, cache)
 			local cache = cache or Remote.DecodeCache or {}
-			if not key or not str then 
-				return str 
+			if not key or not str then
+				return str
 			elseif cache[key] and cache[key][str] then
 				return cache[key][str]
 			else
@@ -1053,89 +1176,5 @@ return function(Vargs)
 				return endStr
 			end
 		end;
-
-		--[[
-		--// Moldy
-		Encrypt = function(str, key, cache)
-			local cache = cache or Remote.EncodeCache or {}
-			if not key or not str then 
-				return str
-			elseif cache[key] and cache[key][str] then
-				return cache[key][str]
-			else
-				local keyCache = cache[key] or {}
-				local tobyte = string.byte
-				local abs = math.abs
-				local sub = string.sub
-				local len = string.len
-				local char = string.char
-				local endStr = {}
-				local byte = function(str, pos)
-					return tobyte(sub(str, pos, pos))
-				end
-				
-				for i = 1,len(str) do
-					if i%len(str) > 0 then
-						if byte(str, i) + byte(key, (i%len(key))+1) > 255 then
-							endStr[i] = char(abs(byte(str,i) - byte(key, (i%len(key))+1)))
-						else
-							endStr[i] = char(abs(byte(key, (i%len(key))+1) + byte(str, i)))
-						end
-					else
-						if byte(str, i) + byte(key, 1) > 255 then
-							endStr[i] = char(abs(byte(str, i) - byte(key, 1)))
-						else
-							endStr[i] = char(abs(byte(key, 1) + byte(str, i)))
-						end
-					end
-				end
-				
-				endStr = table.concat(endStr)
-				cache[key] = keyCache
-				keyCache[str] = endStr
-				return endStr
-			end
-		end;
-		
-		Decrypt = function(str, key, cache)
-			local cache = cache or Remote.DecodeCache or {}
-			if not key or not str then 
-				return str 
-			elseif cache[key] and cache[key][str] then
-				return cache[key][str]
-			else
-				local keyCache = cache[key] or {}
-				local tobyte = string.byte
-				local abs = math.abs
-				local sub = string.sub
-				local len = string.len
-				local char = string.char
-				local endStr = {}
-				local byte = function(str, pos)
-					return tobyte(sub(str, pos, pos))
-				end
-				
-				for i = 1,len(str) do
-					if i%len(str) > 0 then
-						if byte(str, i) + byte(key, (i%len(key))+1) > 255 then
-							endStr[i] = char(abs(byte(str,i) - byte(key, (i%len(key))+1)))
-						else
-							endStr[i] = char(abs(byte(key, (i%len(key))+1) - byte(str, i)))
-						end
-					else
-						if byte(str, i) + byte(key, 1) > 255 then
-							endStr[i] = char(abs(byte(str, i) - byte(key, 1)))
-						else
-							endStr[i] = char(abs(byte(key, 1) - byte(str, i)))
-						end
-					end
-				end
-				
-				endStr = table.concat(endStr)
-				cache[key] = keyCache
-				keyCache[str] = endStr
-				return endStr
-			end
-		end;--]]
 	};
 end
