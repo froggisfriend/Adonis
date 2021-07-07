@@ -1,6 +1,17 @@
 return {
-	"Version: 221.3";
+	"Version: 221.6";
 	"*Drag edges to expand*";
+	"";
+	"[v221.6 7.6.2021 17:03 EST]";
+	"*CrossServer LoadData no longer triggers LoadData on the origin server (which resulted in lag)";
+	"*Big changes to the datastore; Should improve performance & eliminate throttling";
+	"";
+	"[v221.5 7.6.2021 13:48 EST]";
+	"*Fixed a bug related to startup commands that cause loading to halt which resulted in errors";
+	"";
+	"[v221.4 7.3.2021 21:42 EST]";
+	"*Fixed whitelist-related bug that would break everything else";
+	"*Fixed creators not being able to use every command regardless of level";
 	"";
 	"[v221.3 7.3.2021 19:31 EST]";
 	"*Fixed permissions with prefix not working";

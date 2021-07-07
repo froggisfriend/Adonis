@@ -216,23 +216,23 @@ return function(Vargs)
 					if #whitelist>0 then HTTP.Trello.Whitelist = whitelist end
 
 					Settings.Ranks["[Trello] Creators"] = {
-						Level = 900;
-						Users = creators or {};
+						Level = Settings.Ranks.Creators.Level;
+						Users = HTTP.Trello.Creators or {};
 					}
 
 					Settings.Ranks["[Trello] HeadAdmins"] = {
-						Level = 300;
-						Users = HeadAdmins or {};
+						Level = Settings.Ranks.HeadAdmins.Level;
+						Users = HTTP.Trello.HeadAdmins or {};
 					}
 
 					Settings.Ranks["[Trello] Admins"] = {
-						Level = 200;
-						Users = admins or {};
+						Level = Settings.Ranks.Admins.Level;
+						Users = HTTP.Trello.Admins or {};
 					}
 
 					Settings.Ranks["[Trello] Moderators"] = {
-						Level = 100;
-						Users = moderators or {};
+						Level = Settings.Ranks.Moderators.Level;
+						Users = HTTP.Trello.Moderators or {};
 					}
 
 					Variables.Blacklist.Trello = blacklist;

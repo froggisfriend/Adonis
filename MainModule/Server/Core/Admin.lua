@@ -119,7 +119,7 @@ return function(Vargs)
 
 		--// Run OnStartup Commands
 		for i,v in next,Settings.OnStartup do
-			server.Threading.NewThread(Admin.RunCommand, v)
+			service.TrackTask("Thread: Startup_Cmd: ".. tostring(v), Admin.RunCommand, v);
 			Logs:AddLog("Script",{
 				Text = "Startup: Executed "..tostring(v);
 				Desc = "Executed startup command; "..tostring(v)
@@ -448,12 +448,7 @@ return function(Vargs)
 		end;
 
 		CheckAdmin = function(p)
-			local level = Admin.GetLevel(p)
-			if level > 0 then
-				return true
-			else
-				return false
-			end
+			return Admin.GetLevel(p) > 0;
 		end;
 
 		SetLevel = function(p, level)
@@ -461,7 +456,7 @@ return function(Vargs)
 			local list = Admin.LevelToList(current)
 
 			if tonumber(level) then
-				if current >= 999 then
+				if current >= 1000 then
 					return false
 				else
 					Admin.SpecialLevels[tostring(p.userId)] = {Player = p.userId, Level = level}
@@ -497,6 +492,7 @@ return function(Vargs)
 			if type(p) == "userdata" then
 				Admin.SetLevel(p,0)
 			end
+
 			if list then
 				for ind,check in ipairs(list) do
 					if Admin.DoCheck(p, check) and not (type(check) == "string" and (check:match("^Group:") or check:match("^Item:"))) then
@@ -736,7 +732,7 @@ return function(Vargs)
 
 		RunCommandAsNonAdmin = function(coma,plr,...)
 			local ind,com = Admin.GetCommand(coma)
-			if com then
+			if com and com.AdminLevel == 0 then
 				local cmdArgs = com.Args or com.Arguments
 				local args = Admin.GetArgs(coma,#cmdArgs,...)
 				local ran, error = service.TrackTask(tostring(plr) ..": ".. coma, com.Function, plr, args, {PlayerData = {
@@ -965,7 +961,7 @@ return function(Vargs)
 			local funAllowed = Settings.FunCommands
 			local isComLevel = Admin.IsComLevel
 
-			if adminLevel >= 999 then
+			if adminLevel >= 900 then
 				return true
 			elseif cmd.Fun and not funAllowed then
 				return false
