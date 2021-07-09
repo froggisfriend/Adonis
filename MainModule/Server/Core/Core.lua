@@ -72,6 +72,9 @@ return function(Vargs)
 			end)
 		end
 
+		--// Save all data on server shutdown
+		game:BindToClose(Core.SaveAllPlayerData);
+
 		--// Start API
 		if service.NetworkServer then
 			--service.Threads.RunTask("_G API Manager",server.Core.StartAPI)
@@ -135,7 +138,7 @@ return function(Vargs)
 			--[[
 			for i,v in pairs(service.Players:GetPlayers()) do
 				cPcall(function()
-					v.Chatted:connect(function(msg)
+					v.Chatted:Connect(function(msg)
 						Process.Chat(v,msg)
 					end)
 				end)

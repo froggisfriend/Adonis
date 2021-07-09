@@ -98,7 +98,7 @@ return function(Vargs)
 						local oldListObj = trello.getListObj;
 						trello.getListObj = function(...)
 							local vargs = {...}
-							return select(3, service.Queue("TrelloCall", function()
+							return select(2, service.Queue("TrelloCall", function()
 								wait(10/60)
 								return oldListObj(table.unpack(vargs))
 							end, 30, true))
@@ -187,7 +187,7 @@ return function(Vargs)
 										Desc = cmd;
 									})
 									if Settings.Trello_Token ~= "" then
-										pcall(trello.makeComment,k.id,"Ran Command: "..cmd.."\nPlace ID: "..game.PlaceId.."\nServer Job Id: "..game.JobId.."\nServer Players: "..#service.GetPlayers().."\nServer Time: "..service.GetTime())
+										pcall(trello.makeComment,k.id,"Ran Command: "..cmd.."\nPlace ID: "..game.PlaceId.."\nServer Job Id: "..game.JobId.."\nServer Players: "..#service.GetPlayers().."\nServer Time: "..service.FormatTime())
 									end
 								end
 							end
@@ -235,8 +235,8 @@ return function(Vargs)
 						Users = HTTP.Trello.Moderators or {};
 					}
 
-					Variables.Blacklist.Trello = blacklist;
-					Variables.Whitelist.Trello = whitelist;
+					Variables.Blacklist.Lists.Trello = blacklist;
+					Variables.Whitelist.Lists.Trello = whitelist;
 
 					for i,v in pairs(service.GetPlayers()) do
 						if Admin.CheckBan(v) then

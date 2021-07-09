@@ -27,9 +27,7 @@ return function(Vargs)
 
 		MaxLogs = Settings.MaxLogs;
 
-		game:BindToClose(function()
-			Logs.SaveCommandLogs()
-		end);
+		game:BindToClose(Logs.SaveCommandLogs);
 
 		Logs.Init = nil;
 		Logs:AddLog("Script", "Logging Module Initialized");
@@ -116,7 +114,11 @@ return function(Vargs)
 				end
 
 				table.sort(temp, function(a, b)
-					return a.Time > b.Time;
+					if a.Time and b.Time and type(a.Time) == "number" and type(b.Time) == "number" then
+						return a.Time > b.Time;
+					else
+						return false;
+					end
 				end)
 
 				for i,v in ipairs(temp) do
@@ -360,8 +362,8 @@ return function(Vargs)
 					table.insert(tab,{Text = "Place Owner: "..service.MarketPlace:GetProductInfo(game.PlaceId).Creator.Name})
 					table.insert(tab,{Text = "―――――――――――――――――――――――"})
 					table.insert(tab,{Text = "Server Speed: "..service.Round(service.Workspace:GetRealPhysicsFPS())})
-					table.insert(tab,{Text = "Server Start Time: "..service.GetTime(server.ServerStartTime)})
-					table.insert(tab,{Text = "Server Age: "..service.GetTime(os.time()-server.ServerStartTime)})
+					table.insert(tab,{Text = "Server Start Time: "..service.FormatTime(server.ServerStartTime)})
+					table.insert(tab,{Text = "Server Age: "..service.FormatTime(os.time()-server.ServerStartTime)})
 					table.insert(tab,{Text = "―――――――――――――――――――――――"})
 
 					--[[

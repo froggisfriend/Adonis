@@ -56,7 +56,7 @@ function dirToCom(part, mdir)
 	}
 
 	for i,v in next,dirs do
-		if (v - mdir).magnitude <= 1.05 and mdir ~= Vector3.new(0,0,0) then
+		if (v - mdir).Magnitude <= 1.05 and mdir ~= Vector3.new(0,0,0) then
 			dir[i] = true
 		elseif not keyTab[i] then
 			dir[i] = false
@@ -283,7 +283,7 @@ if a=='KFly' then
 		local bg,bv=new'BodyGyro'{Parent=root;D=200;P=5000;cframe=root.CFrame},new'BodyVelocity'{Parent=root}
 		b=new'BoolValue'{Parent=root;Name='KFly'}
 		Curr.Fly=b
-		b.Changed:connect(function(a)
+		b.Changed:Connect(function(a)
 			if b==Curr.Fly then
 			a=b.Value
 			local f=a and v3(9e9,9e9,9e9) or v3()
@@ -335,7 +335,7 @@ local function start()
   gyro.Name = "ADONIS_GYRO"
   gyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
   gyro.cframe = torso.CFrame
-  human.Died:connect(function()
+  human.Died:Connect(function()
   if gyro then gyro:Destroy() end
   if pos then pos:Destroy() end
   	flying = false
@@ -387,7 +387,7 @@ local function start()
   speed = 0
 end
 
-mouse.KeyDown:connect(function(key)
+mouse.KeyDown:Connect(function(key)
 if check() then
   if key=="w" then
     keys.w = true
@@ -408,7 +408,7 @@ if check() then
 end
 end)
 
-mouse.KeyUp:connect(function(key)
+mouse.KeyUp:Connect(function(key)
 if check() then
   if key=="w" then
     keys.w = false

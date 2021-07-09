@@ -386,6 +386,11 @@ return service.NewProxy({__metatable = "Adonis"; __tostring = function() return 
 	setfenv(1,setmetatable({}, {__metatable = unique}))
 	data = service.Wrap(data or {})
 
+	--// Warn if possibly malicious
+	if data.PremiumID or data.PremiumId then
+		warn("You might be using a malicious version of the Adonis loader!")
+	end
+
 	--// Server Variables
 	local setTab = require(server.Deps.DefaultSettings)
 	server.Defaults = setTab
@@ -478,20 +483,24 @@ return service.NewProxy({__metatable = "Adonis"; __tostring = function() return 
 
 		if core then
 			if type(core) == "table" or (type(core) == "userdata" and getmetatable(core) == "ReadOnly_Table") then
-				if core.Init then
-					core.Init(data)
-				end
-
 				if core.RunLast then
 					table.insert(runLast, core.RunLast);
+					core.RunLast = nil;
 				end
 
 				if core.RunAfterInit then
 					table.insert(runAfterInit, core.RunAfterInit);
+					core.RunAfterInit = nil;
 				end
 
 				if core.RunAfterPlugins then
 					table.insert(runAfterPlugins, core.RunAfterPlugins);
+					core.RunAfterPlugins = nil;
+				end
+
+				if core.Init then
+					core.Init(data);
+					core.Init = nil;
 				end
 			end
 		end
